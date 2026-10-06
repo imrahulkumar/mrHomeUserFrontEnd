@@ -18,7 +18,9 @@ export default function App() {
   const { user } = useAuth();
   const { pathname } = useLocation();
 
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   return (
     <>
