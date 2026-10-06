@@ -1,10 +1,17 @@
 import { useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import * as api from '../api';
 import OrderSummary from '../components/OrderSummary';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { placeOrder, processPayment } from '../services/api';
+import { useStore } from '../context/StoreContext';
 import { formatPrice } from '../utils/format';
+
+const METHODS = [
+  ['card', '💳 Credit / Debit card'],
+  ['upi', '📱 UPI'],
+  ['cod', '💵 Cash on delivery'],
+];
 
 const formatCardNumber = (v) => v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
 const formatExpiry = (v) => {
@@ -29,12 +36,14 @@ function validatePayment(method, p) {
 
 export default function Checkout() {
   const { user } = useAuth();
+  const { settings } = useStore();
   const { items, total, clearCart } = useCart();
   const navigate = useNavigate();
   const orderPlaced = useRef(false);
 
-  const [address, setAddress] = useState({ fullName: user.name, phone: '', line1: '', city: '', state: '', pincode: '' });
-  const [method, setMethod] = useState('card');
+  const methods = METHODS.filter(([value]) => settings.paymentMethods?.[value]);
+  const [address, setAddress] = useState({ fullName: user.name, phone: user.phone ?? '', line1: '', city: '', state: '', pincode: '' });
+  const [method, setMethod] = useState(methods[0]?.[0] ?? '');
   const [payment, setPayment] = useState({ cardNumber: '', cardName: '', expiry: '', cvv: '', upiId: '' });
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -55,6 +64,7 @@ export default function Checkout() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!method) return setError('No payment method is available right now.');
     if (!/^\d{10}$/.test(address.phone)) return setError('Enter a valid 10-digit phone number.');
     if (!/^\d{6}$/.test(address.pincode)) return setError('Enter a valid 6-digit pincode.');
     const paymentError = validatePayment(method, payment);
@@ -62,14 +72,15 @@ export default function Checkout() {
 
     setProcessing(true);
     try {
-      const txn = method === 'cod' ? { transactionId: null } : await processPayment({ amount: total, method, details: payment });
-      const order = await placeOrder({
-        userId: user.id,
-        items: items.map(({ id, name, price, qty }) => ({ id, name, price, qty })),
-        total,
+      // Only the last 4 digits ever leave the browser; a real gateway would tokenise the card client-side.
+      const order = await api.createOrder({
+        items: items.map((i) => ({ product: i._id, qty: i.qty })),
         address,
-        paymentMethod: method,
-        transactionId: txn.transactionId,
+        payment: {
+          method,
+          ...(method === 'card' && { cardLast4: payment.cardNumber.replace(/\s/g, '').slice(-4) }),
+          ...(method === 'upi' && { upiId: payment.upiId }),
+        },
       });
       orderPlaced.current = true;
       clearCart();
@@ -100,11 +111,7 @@ export default function Checkout() {
           <section className="card form-section">
             <h3>2. Payment method</h3>
             <div className="pay-methods">
-              {[
-                ['card', '💳 Credit / Debit card'],
-                ['upi', '📱 UPI'],
-                ['cod', '💵 Cash on delivery'],
-              ].map(([value, label]) => (
+              {methods.map(([value, label]) => (
                 <label key={value} className={`pay-option ${method === value ? 'active' : ''}`}>
                   <input type="radio" name="method" value={value} checked={method === value} onChange={() => setMethod(value)} />
                   {label}
@@ -114,10 +121,10 @@ export default function Checkout() {
 
             {method === 'card' && (
               <div className="form-grid">
-                <label className="span-2">Card number<input name="cardNumber" value={payment.cardNumber} onChange={onPayment} placeholder="1234 5678 9012 3456" inputMode="numeric" /></label>
-                <label className="span-2">Name on card<input name="cardName" value={payment.cardName} onChange={onPayment} /></label>
-                <label>Expiry<input name="expiry" value={payment.expiry} onChange={onPayment} placeholder="MM/YY" inputMode="numeric" /></label>
-                <label>CVV<input name="cvv" type="password" value={payment.cvv} onChange={onPayment} inputMode="numeric" /></label>
+                <label className="span-2">Card number<input name="cardNumber" value={payment.cardNumber} onChange={onPayment} placeholder="1234 5678 9012 3456" inputMode="numeric" autoComplete="cc-number" /></label>
+                <label className="span-2">Name on card<input name="cardName" value={payment.cardName} onChange={onPayment} autoComplete="cc-name" /></label>
+                <label>Expiry<input name="expiry" value={payment.expiry} onChange={onPayment} placeholder="MM/YY" inputMode="numeric" autoComplete="cc-exp" /></label>
+                <label>CVV<input name="cvv" type="password" value={payment.cvv} onChange={onPayment} inputMode="numeric" autoComplete="cc-csc" /></label>
               </div>
             )}
             {method === 'upi' && (
@@ -132,7 +139,7 @@ export default function Checkout() {
 
         <OrderSummary>
           {error && <div className="alert alert-error">{error}</div>}
-          <button className="btn btn-primary btn-block" disabled={processing}>
+          <button className="btn btn-primary btn-block" disabled={processing || !method}>
             {processing ? 'Processing payment…' : method === 'cod' ? 'Place order' : `Pay ${formatPrice(total)}`}
           </button>
         </OrderSummary>

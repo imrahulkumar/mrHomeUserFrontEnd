@@ -1,50 +1,81 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import * as api from '../api';
 import ProductCard from '../components/ProductCard';
-import { getDepartments, getProducts } from '../services/api';
+import VideoGallery from '../components/VideoGallery';
+import { useStore } from '../context/StoreContext';
 
 export default function Dashboard() {
+  const { settings, categories } = useStore();
   const [featured, setFeatured] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const { hero } = settings;
 
   useEffect(() => {
-    getProducts().then((data) => setFeatured([...data].sort((a, b) => b.rating - a.rating).slice(0, 8)));
+    // Featured products, falling back to top-rated when none are marked featured.
+    api
+      .getProducts({ featured: true, limit: 8 })
+      .then(({ items }) => (items.length ? items : api.getProducts({ sort: 'rating', limit: 8 }).then((r) => r.items)))
+      .then(setFeatured)
+      .catch(() => setFeatured([]));
+    api.getVideos({ home: true }).then(setVideos).catch(() => setVideos([]));
   }, []);
 
   return (
     <div className="container">
-      <section className="hero">
-        <h1>Timeless jewellery & handcrafted décor</h1>
-        <p>Certified gold, diamonds and artisan home pieces. Free shipping on orders above ₹10,000.</p>
+      <section
+        className={`hero ${hero.image ? 'hero-image' : ''}`}
+        style={hero.image ? { backgroundImage: `linear-gradient(90deg, rgba(20,15,10,.75), rgba(20,15,10,.2)), url(${hero.image})` } : undefined}
+      >
+        <h1>{hero.title}</h1>
+        {hero.subtitle && <p>{hero.subtitle}</p>}
+        {hero.ctaText && (
+          <Link to={hero.ctaLink || (categories[0] ? `/shop/${categories[0].slug}` : '/')} className="btn btn-primary hero-cta">
+            {hero.ctaText}
+          </Link>
+        )}
       </section>
 
-      <h2>Shop by department</h2>
-      <div className="dept-grid">
-        {getDepartments().map((d) => (
-          <div key={d.slug} className="dept-card card">
-            <Link to={`/shop/${d.slug}`} className="dept-card-title">
-              <span className="dept-icon">{d.icon}</span>
-              <div>
-                <h3>{d.name}</h3>
-                <p className="muted">{d.tagline}</p>
-              </div>
-            </Link>
-            <div className="dept-subs">
-              {d.categories.map((c) => (
-                <Link key={c.slug} to={`/shop/${d.slug}?type=${c.slug}`} className="chip">
-                  {c.icon} {c.name}
+      {categories.length > 0 && (
+        <section className="section">
+          <h2>Shop by category</h2>
+          <div className="dept-grid">
+            {categories.map((c) => (
+              <div key={c._id} className="dept-card card">
+                <Link to={`/shop/${c.slug}`} className="dept-card-title">
+                  {c.image ? <img src={c.image} alt="" className="dept-icon" /> : <span className="dept-icon">{c.icon}</span>}
+                  <div>
+                    <h3>{c.name}</h3>
+                    {c.tagline && <p className="muted">{c.tagline}</p>}
+                  </div>
                 </Link>
-              ))}
-            </div>
+                {c.subCategories.length > 0 && (
+                  <div className="dept-subs">
+                    {c.subCategories.map((s) => (
+                      <Link key={s._id} to={`/shop/${c.slug}?type=${s.slug}`} className="chip">
+                        {s.icon} {s.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
+      )}
 
-      <h2>Top rated</h2>
-      <div className="product-grid">
-        {featured.map((p) => (
-          <ProductCard key={p.id} product={p} />
-        ))}
-      </div>
+      {featured.length > 0 && (
+        <section className="section">
+          <h2>Featured</h2>
+          <div className="product-grid">
+            {featured.map((p) => (
+              <ProductCard key={p._id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <VideoGallery title="Watch our collection" videos={videos} />
     </div>
   );
 }

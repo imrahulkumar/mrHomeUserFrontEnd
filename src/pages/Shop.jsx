@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import * as api from '../api';
 import FilterSidebar, { PRICE_RANGES } from '../components/FilterSidebar';
 import ProductCard from '../components/ProductCard';
-import { getDepartment, getProducts } from '../services/api';
+import VideoGallery from '../components/VideoGallery';
 
+const PAGE_SIZE = 24;
 const splitParam = (value) => (value ? value.split(',') : []);
 
 export default function Shop() {
-  const { department: slug } = useParams();
-  const department = getDepartment(slug);
+  const { category: slug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [products, setProducts] = useState([]);
+  const [category, setCategory] = useState(null);
+  const [categoryError, setCategoryError] = useState('');
+  const [result, setResult] = useState({ items: [], total: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [search, setSearch] = useState(searchParams.get('q') ?? '');
 
   // Filters live in the URL so a filtered view can be bookmarked or shared.
   const filters = {
@@ -21,8 +25,8 @@ export default function Shop() {
     price: searchParams.get('price') ?? '',
     rating: searchParams.get('rating') ?? '',
   };
-  const search = searchParams.get('q') ?? '';
   const sort = searchParams.get('sort') ?? 'featured';
+  const page = Number(searchParams.get('page')) || 1;
 
   const updateParams = (changes) => {
     const next = new URLSearchParams(searchParams);
@@ -33,72 +37,94 @@ export default function Shop() {
       if (str) next.set(param, str);
       else next.delete(param);
     });
+    if (!('page' in changes)) next.delete('page');
     setSearchParams(next, { replace: true });
   };
-
   const clearFilters = () => updateParams({ types: [], materials: [], price: '', rating: '' });
 
+  // Category info, sub-categories and filter facets.
+  useEffect(() => {
+    setCategory(null);
+    setCategoryError('');
+    setFiltersOpen(false);
+    setSearch(new URLSearchParams(window.location.search).get('q') ?? '');
+    api.getCategory(slug).then(setCategory).catch((err) => setCategoryError(err.message));
+  }, [slug]);
+
+  // Products, re-fetched whenever the URL filters change.
   useEffect(() => {
     let active = true;
+    const range = PRICE_RANGES.find((r) => r.key === searchParams.get('price'));
     setLoading(true);
-    getProducts(slug).then((data) => {
-      if (active) {
-        setProducts(data);
-        setLoading(false);
-      }
-    });
+    api
+      .getProducts({
+        category: slug,
+        sub: searchParams.get('type'),
+        material: searchParams.get('material'),
+        minPrice: range?.min,
+        maxPrice: range?.max,
+        minRating: searchParams.get('rating'),
+        q: searchParams.get('q'),
+        sort: searchParams.get('sort'),
+        page: searchParams.get('page'),
+        limit: PAGE_SIZE,
+      })
+      .then((data) => active && setResult(data))
+      .catch(() => active && setResult({ items: [], total: 0, pages: 0 }))
+      .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [slug]);
+  }, [slug, searchParams]);
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const range = PRICE_RANGES.find((r) => r.key === filters.price);
-    const minRating = Number(filters.rating) || 0;
+  // Debounce the search box into the URL.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (search !== (searchParams.get('q') ?? '')) updateParams({ q: search });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
-    const list = products.filter(
-      (p) =>
-        (filters.types.length === 0 || filters.types.includes(p.category)) &&
-        (filters.materials.length === 0 || filters.materials.includes(p.material)) &&
-        (!range || (p.price >= range.min && p.price < range.max)) &&
-        p.rating >= minRating &&
-        (!q || p.name.toLowerCase().includes(q) || p.material.toLowerCase().includes(q)),
+  if (categoryError) {
+    return (
+      <div className="container empty">
+        <h2>Category not found</h2>
+        <Link to="/" className="btn btn-primary">Back to home</Link>
+      </div>
     );
-    if (sort === 'price-asc') list.sort((a, b) => a.price - b.price);
-    if (sort === 'price-desc') list.sort((a, b) => b.price - a.price);
-    if (sort === 'rating') list.sort((a, b) => b.rating - a.rating);
-    return list;
-  }, [products, searchParams]); // filters, search and sort are all derived from searchParams
-
-  if (!department) return <Navigate to="/" replace />;
+  }
+  if (!category) return <div className="boot-state"><span className="spinner" /></div>;
 
   const activeChips = [
     ...filters.types.map((t) => ({
-      label: department.categories.find((c) => c.slug === t)?.name ?? t,
+      key: `t-${t}`,
+      label: category.subCategories.find((s) => s.slug === t)?.name ?? t,
       remove: () => updateParams({ types: filters.types.filter((v) => v !== t) }),
     })),
     ...filters.materials.map((m) => ({
+      key: `m-${m}`,
       label: m,
       remove: () => updateParams({ materials: filters.materials.filter((v) => v !== m) }),
     })),
     ...(filters.price
-      ? [{ label: PRICE_RANGES.find((r) => r.key === filters.price)?.label, remove: () => updateParams({ price: '' }) }]
+      ? [{ key: 'price', label: PRICE_RANGES.find((r) => r.key === filters.price)?.label, remove: () => updateParams({ price: '' }) }]
       : []),
-    ...(filters.rating ? [{ label: `★ ${filters.rating}+`, remove: () => updateParams({ rating: '' }) }] : []),
+    ...(filters.rating ? [{ key: 'rating', label: `★ ${filters.rating}+`, remove: () => updateParams({ rating: '' }) }] : []),
   ];
 
   return (
     <div className="container">
-      <section className="dept-banner">
-        <h1>{department.icon} {department.name}</h1>
-        <p>{department.tagline}</p>
+      <section
+        className={`dept-banner ${category.image ? 'dept-banner-image' : ''}`}
+        style={category.image ? { backgroundImage: `linear-gradient(90deg, rgba(255,253,249,.95), rgba(255,253,249,.6)), url(${category.image})` } : undefined}
+      >
+        <h1>{category.icon} {category.name}</h1>
+        {category.tagline && <p>{category.tagline}</p>}
       </section>
 
       <div className="shop-layout">
         <FilterSidebar
-          department={department}
-          products={products}
+          category={category}
           filters={filters}
           onChange={updateParams}
           onClear={clearFilters}
@@ -109,19 +135,15 @@ export default function Shop() {
 
         <div className="shop-results">
           <div className="toolbar">
-            <p className="muted result-count">{loading ? 'Loading…' : `${visible.length} item${visible.length === 1 ? '' : 's'}`}</p>
+            <p className="muted result-count">{loading ? 'Loading…' : `${result.total} item${result.total === 1 ? '' : 's'}`}</p>
             <div className="toolbar-controls">
               <button className="btn btn-outline filters-toggle" onClick={() => setFiltersOpen(true)}>
                 ⚙ Filters{activeChips.length > 0 && ` (${activeChips.length})`}
               </button>
-              <input
-                type="search"
-                placeholder={`Search ${department.name.toLowerCase()}…`}
-                value={search}
-                onChange={(e) => updateParams({ q: e.target.value })}
-              />
+              <input type="search" placeholder={`Search ${category.name.toLowerCase()}…`} value={search} onChange={(e) => setSearch(e.target.value)} />
               <select value={sort} onChange={(e) => updateParams({ sort: e.target.value === 'featured' ? '' : e.target.value })}>
                 <option value="featured">Featured</option>
+                <option value="newest">Newest</option>
                 <option value="price-asc">Price: low to high</option>
                 <option value="price-desc">Price: high to low</option>
                 <option value="rating">Top rated</option>
@@ -132,7 +154,7 @@ export default function Shop() {
           {activeChips.length > 0 && (
             <div className="chips">
               {activeChips.map((chip) => (
-                <button key={chip.label} className="chip" onClick={chip.remove}>
+                <button key={chip.key} className="chip" onClick={chip.remove}>
                   {chip.label} <span aria-hidden>✕</span>
                 </button>
               ))}
@@ -140,20 +162,30 @@ export default function Shop() {
             </div>
           )}
 
-          {!loading && visible.length === 0 ? (
+          {!loading && result.items.length === 0 ? (
             <div className="empty">
               <p className="muted">No items match these filters.</p>
-              <button className="btn btn-outline" onClick={clearFilters}>Clear filters</button>
+              {activeChips.length > 0 && <button className="btn btn-outline" onClick={clearFilters}>Clear filters</button>}
             </div>
           ) : (
-            <div className="product-grid">
-              {visible.map((p) => (
-                <ProductCard key={p.id} product={p} />
+            <div className={`product-grid ${loading ? 'is-loading' : ''}`}>
+              {result.items.map((p) => (
+                <ProductCard key={p._id} product={p} />
               ))}
+            </div>
+          )}
+
+          {result.pages > 1 && (
+            <div className="pagination">
+              <button className="btn btn-outline" disabled={page <= 1} onClick={() => updateParams({ page: String(page - 1) })}>← Previous</button>
+              <span className="muted">Page {page} of {result.pages}</span>
+              <button className="btn btn-outline" disabled={page >= result.pages} onClick={() => updateParams({ page: String(page + 1) })}>Next →</button>
             </div>
           )}
         </div>
       </div>
+
+      <VideoGallery title={`${category.name} videos`} videos={category.videos} />
     </div>
   );
 }

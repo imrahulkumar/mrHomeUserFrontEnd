@@ -1,13 +1,14 @@
 export const PRICE_RANGES = [
-  { key: 'u5k', label: 'Under ₹5,000', min: 0, max: 5000 },
+  { key: 'u5k', label: 'Under ₹5,000', max: 5000 },
   { key: '5k-25k', label: '₹5,000 – ₹25,000', min: 5000, max: 25000 },
   { key: '25k-1l', label: '₹25,000 – ₹1,00,000', min: 25000, max: 100000 },
-  { key: 'o1l', label: 'Above ₹1,00,000', min: 100000, max: Infinity },
+  { key: 'o1l', label: 'Above ₹1,00,000', min: 100000 },
 ];
 
 export const RATINGS = [4.5, 4, 3];
 
 function CheckboxGroup({ title, options, selected, onToggle }) {
+  if (!options.length) return null;
   return (
     <fieldset className="filter-group">
       <legend>{title}</legend>
@@ -38,25 +39,20 @@ function RadioGroup({ title, name, options, selected, onSelect }) {
 
 /**
  * Controlled filter panel. `filters` = { types: [], materials: [], price: '', rating: '' }.
+ * Options and counts come from the category's facets returned by the API.
  */
-export default function FilterSidebar({ department, products, filters, onChange, onClear, open, onClose }) {
+export default function FilterSidebar({ category, filters, onChange, onClear, open, onClose }) {
   const toggle = (key, value) => {
     const list = filters[key];
     onChange({ [key]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value] });
   };
 
-  const typeOptions = department.categories.map((c) => ({
-    value: c.slug,
-    label: `${c.icon} ${c.name}`,
-    count: products.filter((p) => p.category === c.slug).length,
+  const typeOptions = category.subCategories.map((s) => ({
+    value: s.slug,
+    label: `${s.icon ?? ''} ${s.name}`.trim(),
+    count: s.productCount,
   }));
-
-  const materialOptions = [...new Set(products.map((p) => p.material))].sort().map((m) => ({
-    value: m,
-    label: m,
-    count: products.filter((p) => p.material === m).length,
-  }));
-
+  const materialOptions = category.facets.materials.map((m) => ({ value: m.value, label: m.value, count: m.count }));
   const activeCount = filters.types.length + filters.materials.length + (filters.price ? 1 : 0) + (filters.rating ? 1 : 0);
 
   return (

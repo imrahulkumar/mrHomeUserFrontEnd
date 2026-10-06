@@ -1,11 +1,12 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { getDepartments } from '../services/api';
+import { useStore } from '../context/StoreContext';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { count } = useCart();
+  const { settings, categories } = useStore();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -15,15 +16,19 @@ export default function Navbar() {
 
   return (
     <header className="navbar">
+      {settings.announcement && <div className="announcement">{settings.announcement}</div>}
+
       <div className="navbar-top container">
         <Link to="/" className="brand">
-          <span className="brand-mark">◆</span> Mamta Jewellers
+          {settings.logo ? <img src={settings.logo} alt="" className="brand-logo" /> : <span className="brand-mark">◆</span>}
+          {settings.siteName}
         </Link>
 
         <div className="navbar-actions">
           {user ? (
             <>
               <span className="greeting">Hi, {user.name.split(' ')[0]}</span>
+              <Link to="/orders" className="btn btn-ghost">My orders</Link>
               <button className="btn btn-ghost" onClick={handleLogout}>Logout</button>
             </>
           ) : (
@@ -42,11 +47,13 @@ export default function Navbar() {
       <nav className="category-bar">
         <div className="container category-list">
           <NavLink to="/" end className="category-link">Home</NavLink>
-          {getDepartments().map((d) => (
-            <NavLink key={d.slug} to={`/shop/${d.slug}`} className="category-link">
-              {d.icon} {d.name}
-            </NavLink>
-          ))}
+          {categories
+            .filter((c) => c.showInNav)
+            .map((c) => (
+              <NavLink key={c._id} to={`/shop/${c.slug}`} className="category-link">
+                {c.icon} {c.name}
+              </NavLink>
+            ))}
         </div>
       </nav>
     </header>

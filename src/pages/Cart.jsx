@@ -24,21 +24,21 @@ export default function Cart() {
       <div className="cart-layout">
         <div className="cart-items">
           {items.map((item) => (
-            <div key={item.id} className="cart-item card">
+            <div key={item._id} className="cart-item card">
               <ProductImage product={item} size="sm" />
               <div className="cart-item-info">
-                <Link to={`/product/${item.id}`} className="product-name">{item.name}</Link>
+                <Link to={`/product/${item.slug}`} className="product-name">{item.name}</Link>
                 <p className="product-material">{item.material}</p>
                 <p className="price">{formatPrice(item.price)}</p>
               </div>
               <div className="qty">
-                <button onClick={() => updateQty(item.id, item.qty - 1)}>−</button>
+                <button onClick={() => updateQty(item._id, item.qty - 1)}>−</button>
                 <span>{item.qty}</span>
-                <button onClick={() => updateQty(item.id, item.qty + 1)}>+</button>
+                <button onClick={() => updateQty(item._id, item.qty + 1)}>+</button>
               </div>
               <div className="cart-item-total">
                 <strong>{formatPrice(item.price * item.qty)}</strong>
-                <button className="link-btn" onClick={() => removeFromCart(item.id)}>Remove</button>
+                <button className="link-btn" onClick={() => removeFromCart(item._id)}>Remove</button>
               </div>
             </div>
           ))}
