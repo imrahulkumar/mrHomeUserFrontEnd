@@ -39,7 +39,7 @@ export default function Navbar() {
       <div className="navbar-top container">
         <Link to="/" className="brand">
           {settings.logo ? <img src={settings.logo} alt="" className="brand-logo" /> : <span className="brand-mark">◆</span>}
-          {settings.siteName}
+          <span className="brand-name">{settings.siteName}</span>
         </Link>
 
         {/* Compact headers put the menu in the top row; CSS moves it to its own row on small screens. */}
