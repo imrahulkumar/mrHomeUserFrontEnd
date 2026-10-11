@@ -24,9 +24,13 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!settings) return;
     document.title = settings.siteName;
+    const { preset = 'classic', customColors, primaryColor, primaryDark } = settings.theme ?? {};
+    document.documentElement.dataset.theme = preset;
+    // Custom colours override the preset's accent; otherwise let the [data-theme] block decide.
     const root = document.documentElement.style;
-    if (settings.theme?.primaryColor) root.setProperty('--gold', settings.theme.primaryColor);
-    if (settings.theme?.primaryDark) root.setProperty('--gold-dark', settings.theme.primaryDark);
+    const apply = (name, value) => (customColors && value ? root.setProperty(name, value) : root.removeProperty(name));
+    apply('--gold', primaryColor);
+    apply('--gold-dark', primaryDark);
   }, [settings]);
 
   if (error) {

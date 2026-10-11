@@ -116,7 +116,7 @@ export default function Shop() {
     <div className="container">
       <section
         className={`dept-banner ${category.image ? 'dept-banner-image' : ''}`}
-        style={category.image ? { backgroundImage: `linear-gradient(90deg, rgba(255,253,249,.95), rgba(255,253,249,.6)), url(${category.image})` } : undefined}
+        style={category.image ? { backgroundImage: `var(--banner-fade), url(${category.image})` } : undefined}
       >
         <h1>{category.icon} {category.name}</h1>
         {category.tagline && <p>{category.tagline}</p>}
