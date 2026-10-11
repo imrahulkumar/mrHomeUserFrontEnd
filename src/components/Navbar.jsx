@@ -2,6 +2,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useStore } from '../context/StoreContext';
+import NotificationBell from './NotificationBell';
 
 function CategoryMenu({ categories, showIcons }) {
   return (
@@ -57,6 +58,7 @@ export default function Navbar() {
               <Link to="/signup" className="btn btn-primary">Sign up</Link>
             </>
           )}
+          <NotificationBell />
           <Link to="/cart" className="cart-link" aria-label="Cart">
             🛒
             {count > 0 && <span className="cart-badge">{count}</span>}

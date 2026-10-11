@@ -1,4 +1,4 @@
-import { http } from './client';
+import { getDeviceId, http } from './client';
 
 // Auth
 export const register = (data) => http.post('/auth/register', data);
@@ -16,3 +16,8 @@ export const getVideos = (params) => http.get('/videos', params);
 // Orders
 export const createOrder = (data) => http.post('/orders', data);
 export const getMyOrders = () => http.get('/orders/mine');
+
+// Notifications (guests are told apart by an anonymous device id)
+const device = () => ({ 'X-Device-Id': getDeviceId() });
+export const getNotifications = () => http.get('/notifications/feed', undefined, device());
+export const markNotificationsRead = (ids) => http.post('/notifications/read', ids ? { ids } : {}, device());

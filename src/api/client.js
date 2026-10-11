@@ -7,8 +7,24 @@ export const tokenStore = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 };
 
-async function request(method, path, body) {
-  const headers = {};
+const DEVICE_KEY = 'device_id';
+
+/** Anonymous id for this browser, so guests get their own notification read-state. */
+export function getDeviceId() {
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id) {
+      id = crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  } catch {
+    return '';
+  }
+}
+
+async function request(method, path, body, extraHeaders = {}) {
+  const headers = { ...extraHeaders };
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body) headers['Content-Type'] = 'application/json';
@@ -35,7 +51,7 @@ const withQuery = (path, params) => {
 };
 
 export const http = {
-  get: (path, params) => request('GET', withQuery(path, params)),
-  post: (path, body) => request('POST', path, body),
+  get: (path, params, headers) => request('GET', withQuery(path, params), undefined, headers),
+  post: (path, body, headers) => request('POST', path, body, headers),
   patch: (path, body) => request('PATCH', path, body),
 };
