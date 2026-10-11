@@ -4,7 +4,8 @@ import * as api from '../api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../utils/format';
 
-const POLL_MS = 60_000;
+// How often an open store tab checks for new notifications (VITE_NOTIFICATION_POLL_SECONDS, default 15).
+const POLL_MS = (Number(import.meta.env.VITE_NOTIFICATION_POLL_SECONDS) || 15) * 1000;
 
 /** "View" target: the linked product, else the admin's link (store path or external URL). */
 function ActionLink({ n, onClick, className }) {
@@ -29,11 +30,11 @@ export default function NotificationBell() {
     }
   }, []);
 
-  // Reload when the visitor logs in/out, every minute, and when the tab regains focus.
+  // Reload when the visitor logs in/out, every POLL_MS while the tab is visible, and when it regains focus.
   useEffect(() => {
     if (checking) return undefined;
     load();
-    const timer = setInterval(load, POLL_MS);
+    const timer = setInterval(() => document.visibilityState === 'visible' && load(), POLL_MS);
     const onVisible = () => document.visibilityState === 'visible' && load();
     document.addEventListener('visibilitychange', onVisible);
     return () => {
