@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import * as api from '../api';
 import { getFont, loadFonts } from '../utils/fonts';
+import { applyAppIdentity } from '../utils/pwa';
 
 const StoreContext = createContext(null);
 
@@ -25,6 +26,7 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!settings) return;
     document.title = settings.siteName;
+    applyAppIdentity(settings);
     const { preset = 'classic', customColors, primaryColor, primaryDark } = settings.theme ?? {};
     document.documentElement.dataset.theme = preset;
     // Custom colours override the preset's accent; otherwise let the [data-theme] block decide.
