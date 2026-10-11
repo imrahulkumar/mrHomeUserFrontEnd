@@ -198,6 +198,20 @@ a:hover { text-decoration: underline; }
 .notif-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
 .notif-list li { border-bottom: 1px solid var(--border); }
 .notif-list li:last-child { border-bottom: none; }
+.notif-hint { margin: 0; padding: 6px 16px; border-bottom: 1px solid var(--border); font-size: 0.75rem; }
+/* Swipe-to-delete row: the item slides over a red "Delete" strip */
+.notif-swipe { position: relative; overflow: hidden; }
+.notif-swipe-bg {
+  position: absolute; inset: 0; display: flex; align-items: center; padding: 0 20px;
+  background: var(--error); color: #fff; font-size: 0.85rem; font-weight: 600;
+}
+.notif-swipe-bg.right { justify-content: flex-end; }
+.notif-swipe-fg {
+  position: relative; background: var(--surface); touch-action: pan-y; user-select: none;
+  transition: transform 0.2s ease-out;
+}
+.notif-swipe-fg img { -webkit-user-drag: none; }
+@media (prefers-reduced-motion: reduce) { .notif-swipe-fg { transition: none; } }
 .notif-item {
   display: flex; gap: 12px; width: 100%; padding: 12px 16px; text-align: left;
   background: none; border: none; cursor: pointer; font: inherit; color: inherit;
