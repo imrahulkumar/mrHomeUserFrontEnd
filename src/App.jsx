@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
@@ -18,14 +18,22 @@ export default function App() {
   const { user } = useAuth();
   const { pathname } = useLocation();
 
+  const mainRef = useRef(null);
+
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Replay the page-enter animation (chosen in admin settings, see html[data-page-anim] in index.css)
+    // without remounting the page.
+    const main = mainRef.current;
+    main.classList.remove('page-enter');
+    void main.offsetWidth;
+    main.classList.add('page-enter');
   }, [pathname]);
 
   return (
     <>
       <Navbar />
-      <main className="main">
+      <main className="main" ref={mainRef}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/shop/:category" element={<Shop />} />

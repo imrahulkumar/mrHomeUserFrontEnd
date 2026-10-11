@@ -32,7 +32,7 @@ export default function VideoGallery({ title = 'Watch', videos }) {
   if (!videos?.length) return null;
   return (
     <section className="section">
-      <h2>{title}</h2>
+      {title && <h2>{title}</h2>}
       <div className="video-grid">
         {videos.map((v) => (
           <VideoTile key={v._id} video={v} />

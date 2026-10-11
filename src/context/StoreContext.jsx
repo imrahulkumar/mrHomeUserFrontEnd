@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import * as api from '../api';
+import { getFont, loadFonts } from '../utils/fonts';
 
 const StoreContext = createContext(null);
 
@@ -31,6 +32,38 @@ export function StoreProvider({ children }) {
     const apply = (name, value) => (customColors && value ? root.setProperty(name, value) : root.removeProperty(name));
     apply('--gold', primaryColor);
     apply('--gold-dark', primaryDark);
+
+    // Layout, typography and motion choices become html[data-*] attributes that index.css styles.
+    const { appearance = {}, header = {}, animation = {} } = settings;
+    const html = document.documentElement;
+    Object.assign(html.dataset, {
+      fontSize: appearance.fontSize ?? 'medium',
+      buttons: appearance.buttonShape ?? 'theme',
+      cards: appearance.cardStyle ?? 'theme',
+      header: header.style ?? 'classic',
+      sticky: String(header.sticky ?? true),
+      menu: header.menuStyle ?? 'underline',
+      menuAlign: header.menuAlign ?? 'left',
+      menuCase: header.menuUppercase ? 'upper' : 'normal',
+      pageAnim: animation.pageTransition ?? 'fade',
+      reveal: String(animation.scrollReveal ?? true),
+      hover: animation.cardHover ?? 'lift',
+      speed: animation.speed ?? 'normal',
+    });
+    const cols = appearance.productColumns;
+    if (cols) {
+      html.dataset.cols = '';
+      root.setProperty('--cols', cols);
+    } else {
+      delete html.dataset.cols;
+      root.removeProperty('--cols');
+    }
+    loadFonts([appearance.headingFont, appearance.bodyFont]);
+    for (const [name, id] of [['--font-heading', appearance.headingFont], ['--font-body', appearance.bodyFont]]) {
+      const font = getFont(id);
+      if (font) root.setProperty(name, font.family);
+      else root.removeProperty(name);
+    }
   }, [settings]);
 
   if (error) {

@@ -3,11 +3,28 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useStore } from '../context/StoreContext';
 
+function CategoryMenu({ categories, showIcons }) {
+  return (
+    <div className="category-list">
+      <NavLink to="/" end className="category-link">Home</NavLink>
+      {categories
+        .filter((c) => c.showInNav)
+        .map((c) => (
+          <NavLink key={c._id} to={`/shop/${c.slug}`} className="category-link">
+            {showIcons && c.icon} {c.name}
+          </NavLink>
+        ))}
+    </div>
+  );
+}
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { count } = useCart();
   const { settings, categories } = useStore();
   const navigate = useNavigate();
+  const { style = 'classic', showCategoryIcons = true } = settings.header ?? {};
+  const menu = <CategoryMenu categories={categories} showIcons={showCategoryIcons} />;
 
   const handleLogout = () => {
     logout();
@@ -23,6 +40,9 @@ export default function Navbar() {
           {settings.logo ? <img src={settings.logo} alt="" className="brand-logo" /> : <span className="brand-mark">◆</span>}
           {settings.siteName}
         </Link>
+
+        {/* Compact headers put the menu in the top row; CSS moves it to its own row on small screens. */}
+        {style === 'compact' && <nav className="category-inline">{menu}</nav>}
 
         <div className="navbar-actions">
           {user ? (
@@ -44,18 +64,11 @@ export default function Navbar() {
         </div>
       </div>
 
-      <nav className="category-bar">
-        <div className="container category-list">
-          <NavLink to="/" end className="category-link">Home</NavLink>
-          {categories
-            .filter((c) => c.showInNav)
-            .map((c) => (
-              <NavLink key={c._id} to={`/shop/${c.slug}`} className="category-link">
-                {c.icon} {c.name}
-              </NavLink>
-            ))}
-        </div>
-      </nav>
+      {style !== 'compact' && (
+        <nav className="category-bar">
+          <div className="container">{menu}</div>
+        </nav>
+      )}
     </header>
   );
 }
